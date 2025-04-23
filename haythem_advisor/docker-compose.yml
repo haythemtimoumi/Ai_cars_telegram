@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16
+    container_name: caradvisor_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123  # Fixed the typo (was POSTRES_PASSWORD)
+      POSTGRES_DB: caradvisor_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d caradvisor_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  fastapi:
+    build: .
+    container_name: fastapi_app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres123@db/caradvisor_db
+      - CHROME_BINARY=/usr/bin/google-chrome
+      - CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+    restart: unless-stopped
+
+  telegram_bot:
+    build: .
+    container_name: telegram_bot
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres123@db/caradvisor_db
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+    command: ["python", "telegram_bot/bot.py"]
+    restart: unless-stopped
+
+  scraper:
+    build: .
+    container_name: scraper_job
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres123@db/caradvisor_db
+      - CHROME_BINARY=/usr/bin/google-chrome
+      - CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+      - DEBUG=1
+      - HEADLESS=true
+    shm_size: '1gb'
+    command: ["python", "scripts/run_scraping.py"]
+    restart: on-failure
+
+volumes:
+  postgres_data:

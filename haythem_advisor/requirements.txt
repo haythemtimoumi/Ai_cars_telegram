@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pandas
+numpy
+scikit-learn
+joblib
+selenium
+undetected-chromedriver
+beautifulsoup4
+python-telegram-bot==20.7
